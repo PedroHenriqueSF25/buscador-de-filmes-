@@ -1,0 +1,287 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>🎬 Buscador TMDb - Séries e Filmes</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background: url('fundo-site.jpg') no-repeat center center fixed;
+      background-size: cover;
+      color: #f0f0f0;
+      padding: 40px 20px;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background-color: rgba(42, 42, 61, 0.95);
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .search-group {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    input {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      outline: none;
+    }
+    button {
+      padding: 12px 20px;
+      background-color: #63c5ff;
+      border: none;
+      border-radius: 8px;
+      color: #1f1f2e;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    button:hover {
+      background-color: #4bb2eb;
+    }
+    .results {
+      display: grid;
+      grid-template-columns: repeat(auto-fit,minmax(320px,1fr));
+      gap: 20px;
+    }
+    .card {
+      background-color: #1f1f2e;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      display: flex;
+      flex-direction: column;
+    }
+    .card img {
+      border-radius: 8px;
+      width: 100%;
+      max-height: 450px;
+      object-fit: cover;
+      margin-bottom: 15px;
+    }
+    .card h2 {
+      margin: 0 0 10px 0;
+      cursor: pointer;
+      color: #63c5ff;
+      text-decoration: underline;
+    }
+    .card h2:hover {
+      color: #4bb2eb;
+    }
+    .card p {
+      margin: 6px 0;
+      line-height: 1.4;
+      flex-grow: 1;
+    }
+    .genres {
+      font-style: italic;
+      color: #aaa;
+      margin-bottom: 10px;
+    }
+    iframe {
+      margin-top: 12px;
+      width: 100%;
+      height: 200px;
+      border-radius: 8px;
+      border: none;
+      flex-shrink: 0;
+    }
+    .error {
+      color: #ff6b6b;
+      text-align: center;
+      margin-top: 15px;
+      font-weight: 600;
+    }
+    .detail-view {
+      background-color: #1f1f2e;
+      border-radius: 12px;
+      padding: 25px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+      max-width: 700px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    .detail-view img {
+      max-width: 100%;
+      border-radius: 12px;
+      margin-bottom: 20px;
+    }
+    .detail-view h2 {
+      margin-bottom: 10px;
+      cursor: default;
+      color: #63c5ff;
+    }
+    .detail-view p {
+      line-height: 1.5;
+      margin-bottom: 10px;
+    }
+    .back-btn {
+      margin-top: 25px;
+      background-color: #ff6b6b;
+      color: white;
+      border-radius: 8px;
+      padding: 12px 24px;
+      cursor: pointer;
+      font-weight: 600;
+      border: none;
+      transition: background-color 0.3s ease;
+    }
+    .back-btn:hover {
+      background-color: #e04e4e;
+    }
+    .episodes {
+      text-align: left;
+      margin-top: 20px;
+    }
+    .episodes ul {
+      padding-left: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎬 Buscador TMDb - Séries e Filmes</h1>
+    <div class="search-group" id="search-group">
+      <input type="text" id="search" placeholder="Digite o nome de um filme ou série..." />
+      <button onclick="fetchMultiple()">Buscar</button>
+    </div>
+    <div id="error" class="error"></div>
+    <div id="results" class="results"></div>
+    <div id="detail-view" class="detail-view" style="display:none;"></div>
+  </div>
+
+  <script>
+    const apiKey = '8e5ed27b49dce1b8c9f3bfcd7a9fc716';
+    const searchInput = document.getElementById('search');
+    const resultsEl = document.getElementById('results');
+    const errorEl = document.getElementById('error');
+    const detailViewEl = document.getElementById('detail-view');
+    const searchGroupEl = document.getElementById('search-group');
+    document.getElementById('search').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') fetchMultiple();
+    });
+    let currentResults = [];
+
+    async function fetchMultiple() {
+      const query = searchInput.value.trim();
+      resultsEl.innerHTML = '';
+      errorEl.textContent = '';
+      detailViewEl.style.display = 'none';
+      resultsEl.style.display = 'grid';
+      searchGroupEl.style.display = 'flex';
+      if (!query) {
+        errorEl.textContent = 'Por favor, digite um nome para buscar.';
+        return;
+      }
+      try {
+        const searchRes = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${apiKey}&language=pt-BR&query=${encodeURIComponent(query)}&include_adult=false`);
+        const searchData = await searchRes.json();
+        if (!searchData.results || searchData.results.length === 0) {
+          errorEl.textContent = 'Nenhum resultado encontrado.';
+          return;
+        }
+        const filteredResults = searchData.results.filter(item => item.media_type === 'movie' || item.media_type === 'tv');
+        if (filteredResults.length === 0) {
+          errorEl.textContent = 'Nenhum filme ou série encontrado.';
+          return;
+        }
+        currentResults = await Promise.all(filteredResults.map(async item => {
+          const type = item.media_type;
+          const id = item.id;
+          const detailRes = await fetch(`https://api.themoviedb.org/3/${type}/${id}?api_key=${apiKey}&language=pt-BR`);
+          const detail = await detailRes.json();
+          const videoRes = await fetch(`https://api.themoviedb.org/3/${type}/${id}/videos?api_key=${apiKey}&language=pt-BR`);
+          const videos = await videoRes.json();
+          const trailer = videos.results.find(v => v.type === 'Trailer' && v.site === 'YouTube');
+          let seasons = [];
+          if (type === 'tv') {
+            const seasonData = await Promise.all(
+              detail.seasons.map(async (season) => {
+                const res = await fetch(`https://api.themoviedb.org/3/tv/${id}/season/${season.season_number}?api_key=${apiKey}&language=pt-BR`);
+                return res.json();
+              })
+            );
+            seasons = seasonData;
+          }
+          return { detail, trailer, type, seasons };
+        }));
+        resultsEl.innerHTML = currentResults.map(({ detail, type }, index) => {
+          const title = type === 'movie' ? detail.title : detail.name;
+          const year = (detail.release_date || detail.first_air_date || '').split('-')[0] || 'N/A';
+          const genres = detail.genres ? detail.genres.map(g => g.name).join(', ') : 'N/A';
+          const poster = detail.poster_path ? `https://image.tmdb.org/t/p/w300${detail.poster_path}` : 'https://via.placeholder.com/300x450?text=Sem+Imagem';
+          return `
+            <div class="card">
+              <h2 onclick="showDetail(${index})" tabindex="0" role="button">${title} (${year})</h2>
+              <p class="genres">${genres}</p>
+              <img src="${poster}" alt="${title}" />
+            </div>`;
+        }).join('');
+      } catch (e) {
+        console.error(e);
+        errorEl.textContent = 'Erro ao buscar informações. Tente novamente.';
+      }
+    }
+
+    function showDetail(index) {
+      const item = currentResults[index];
+      if (!item) return;
+      const { detail, trailer, type, seasons } = item;
+      const title = type === 'movie' ? detail.title : detail.name;
+      const year = (detail.release_date || detail.first_air_date || '').split('-')[0] || 'N/A';
+      const runtime = type === 'movie'
+        ? detail.runtime ? `${detail.runtime} min` : 'N/A'
+        : detail.episode_run_time?.[0] ? `${detail.episode_run_time[0]} min (por episódio)` : 'N/A';
+      const genres = detail.genres ? detail.genres.map(g => g.name).join(', ') : 'N/A';
+      const overview = detail.overview || 'Sem sinopse disponível.';
+      const poster = detail.poster_path ? `https://image.tmdb.org/t/p/w500${detail.poster_path}` : 'https://via.placeholder.com/300x450?text=Sem+Imagem';
+      let episodesHtml = '';
+      if (type === 'tv') {
+        episodesHtml = '<div class="episodes"><h3>Temporadas e Episódios</h3>' +
+          seasons.map(s => `
+            <strong>Temporada ${s.season_number}: ${s.name}</strong>
+            <ul>${s.episodes?.map(e => `<li>${e.episode_number} - ${e.name}</li>`).join('') || ''}</ul>
+          `).join('') +
+          '</div>';
+      }
+      detailViewEl.innerHTML = `
+        <h2>${title} (${year})</h2>
+        <p class="genres">${genres}</p>
+        <p><strong>Duração:</strong> ${runtime}</p>
+        <p>${overview}</p>
+        <img src="${poster}" alt="${title}" />
+        ${trailer ? `<iframe src="https://www.youtube.com/embed/${trailer.key}" title="Trailer de ${title}" allowfullscreen></iframe>` : ''}
+        ${episodesHtml}
+        <button class="back-btn" onclick="backToList()">Voltar</button>
+      `;
+      resultsEl.style.display = 'none';
+      searchGroupEl.style.display = 'none';
+      detailViewEl.style.display = 'block';
+      errorEl.textContent = '';
+    }
+
+    function backToList() {
+      detailViewEl.style.display = 'none';
+      resultsEl.style.display = 'grid';
+      searchGroupEl.style.display = 'flex';
+      errorEl.textContent = '';
+    }
+  </script>
+</body>
+</html>
